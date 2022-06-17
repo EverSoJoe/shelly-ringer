@@ -21,7 +21,7 @@ def create_session(username, password):
 
 def logout_session(sid):
     params = {'logout': 1, 'sid': sid}
-    requests.get('https://fritz.box/login_sid.lua?version=2', params=params)
+    requests.get('https://fritz.box/login_sid.lua?version=2', verify=False, params=params)
 
 def ring_fritz_phone(username, password):
     sid = create_session(username, password)
