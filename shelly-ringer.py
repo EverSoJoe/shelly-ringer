@@ -1,12 +1,33 @@
 import xml.etree.ElementTree as ET
+import hashlib
 
 import requests
 
-def create_session():
-    pass
+requests.packages.urllib3.disable_warnings()
 
-def ring_fritz_phone():
-    print('testing')
+def create_session(username, password):
+    httpResponse = requests.get('https://fritz.box/login_sid.lua?version=2', verify=False)
+    contentXml = ET.fromstring(httpResponse.content)
+    challenge = contentXml.find('Challenge').text.split('$')
+    hash1 = hashlib.pbkdf2_hmac('sha256', password.encode(), bytes.fromhex(challenge[2]), int(challenge[1]))
+    hash2 = hashlib.pbkdf2_hmac('sha256', hash1, bytes.fromhex(challenge[4]), int(challenge[3]))
+    response = '%s$%s' %(challenge[4], hash2.hex())
+
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    params = {'username': username, 'response': response}
+
+    httpResponse = requests.get('https://fritz.box/login_sid.lua?version=2', verify=False, params=params, headers=headers)
+    return ET.fromstring(httpResponse.content).find('SID').text
+
+def logout_session(sid):
+    params = {'logout': 1, 'sid': sid}
+    requests.get('https://fritz.box/login_sid.lua?version=2', params=params)
+
+def ring_fritz_phone(username, password):
+    sid = create_session(username, password)
+    params = {'sid': sid, 'ring_tone_radio_test': 0, 'start_ringtest': 2}
+    requests.get('http://fritz.box/fon_devices/edit_dect_ring_tone.lua?idx=1', verify=False, params=params)
+    logout_session(sid)
 
 if __name__ == '__main__':
     import argparse
@@ -57,7 +78,7 @@ if __name__ == '__main__':
 
             def do_GET(self):
                 self._set_headers()
-                ring_fritz_phone()
+                ring_fritz_phone(creds['username'], creds['password'])
 
         httpd = http.server.HTTPServer(('', args.port), NoneHandler)
         httpd.serve_forever()
