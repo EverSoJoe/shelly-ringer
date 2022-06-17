@@ -83,8 +83,9 @@ if __name__ == '__main__':
         httpd = http.server.HTTPServer(('', args.port), NoneHandler)
         httpd.serve_forever()
 
-    # not completely implemented
+    # not implemented
     elif args.method == 'pyshelly':
+        exit('Function not implemented')
         from pyShelly import pyShelly
 
         def device_added(dev, code):
