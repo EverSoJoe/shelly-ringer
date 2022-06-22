@@ -6,6 +6,7 @@ import requests
 requests.packages.urllib3.disable_warnings()
 
 def create_session(username, password):
+    print('Getting session from fritz.box')
     httpResponse = requests.get('https://fritz.box/login_sid.lua?version=2', verify=False)
     contentXml = ET.fromstring(httpResponse.content)
     challenge = contentXml.find('Challenge').text.split('$')
@@ -20,13 +21,15 @@ def create_session(username, password):
     return ET.fromstring(httpResponse.content).find('SID').text
 
 def logout_session(sid):
+    print('Logging out of fritz.box')
     params = {'logout': 1, 'sid': sid}
     requests.get('https://fritz.box/login_sid.lua?version=2', verify=False, params=params)
 
 def ring_fritz_phone(username, password):
     sid = create_session(username, password)
-    params = {'sid': sid, 'ring_tone_radio_test': 0, 'start_ringtest': 2}
-    requests.get('http://fritz.box/fon_devices/edit_dect_ring_tone.lua?idx=1', verify=False, params=params)
+    params = {'idx':'1','sid':sid,'startringtest':'2'}
+    print('Ringing fritz.phone')
+    requests.get('https://fritz.box/fon_devices/edit_dect_ring_tone.lua', verify=False, params=params)
     logout_session(sid)
 
 if __name__ == '__main__':
@@ -48,9 +51,13 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    if args.unattended:
+        sys.stdout = open(os.devnull, 'w')
+        sys.stderr = open(os.devnull, 'w')
+
     os.chdir(os.path.dirname(sys.argv[0]))
 
-    if not os.path.exists('creds.yaml'):
+    if not os.path.exists('creds.json'):
         print('Credentials file not found.')
         if args.unattended:
             exit()
@@ -59,10 +66,10 @@ if __name__ == '__main__':
         creds = {}
         creds['username'] = input('Input FritzBox username: ')
         creds['password'] = getpass('Input FritzBox password: ')
-        with open('creds.yaml', 'w') as f:
+        with open('creds.json', 'w') as f:
             json.dump(creds, f)
 
-    with open('creds.yaml', 'r') as f:
+    with open('creds.json', 'r') as f:
         creds = json.load(f)
 
     if args.method == 'webserver':
@@ -77,8 +84,10 @@ if __name__ == '__main__':
                 return None
 
             def do_GET(self):
+                sys.stdout = open('log.txt','w')
                 self._set_headers()
                 ring_fritz_phone(creds['username'], creds['password'])
+                sys.stdout.close()
 
         httpd = http.server.HTTPServer(('', args.port), NoneHandler)
         httpd.serve_forever()
